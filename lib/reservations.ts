@@ -230,5 +230,7 @@ export async function settlePayment(paymentId: string, outcome: Outcome) {
     await refundPayment(payment._id, "Reservation was no longer available when payment completed").catch(() => {});
     return;
   }
-  await postReservationMessage(reservation, String(reservation.buyerId), `I've paid the K${payment.amount.toLocaleString("en-US")} reservation fee for ${reservation.listingTitle}. Please confirm the next step.`).catch(() => {});
+  await postReservationMessage(reservation, String(reservation.buyerId), `I've paid the K${payment.amount.toLocaleString("en-US")} reservation fee for ${reservation.listingTitle}. Please confirm the next step.`).catch((error) => {
+    console.error("[messages] Unable to post payment confirmation", error);
+  });
 }

@@ -47,12 +47,23 @@ export async function login(_: AuthState, formData: FormData): Promise<AuthState
 
   if (throttled(email)) return { error: "Too many attempts. Try again in a few minutes." };
 
-  const user = await findUserWithPassword(email);
+  let user;
+  try {
+    user = await findUserWithPassword(email);
+  } catch (error) {
+    console.error("[auth] Unable to load account", error);
+    return { error: "Sign in is temporarily unavailable. Please try again later." };
+  }
   const ok = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
   if (!user || !user.passwordHash || !ok) return { error: "Incorrect email or password" };
   if ((user as { suspended?: boolean }).suspended) return { error: "This account has been suspended. Contact support." };
 
-  await createSession({ id: String(user._id), name: user.name ?? "", email: user.email });
+  try {
+    await createSession({ id: String(user._id), name: user.name ?? "", email: user.email });
+  } catch (error) {
+    console.error("[auth] Unable to create session", error);
+    return { error: "Sign in is temporarily unavailable. Please try again later." };
+  }
   redirect(safeNext(formData.get("next")));
 }
 

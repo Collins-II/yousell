@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronLeft, MapPin, Check, MessageCircle, Pencil, Sparkles, BadgeCheck, Lock } from "lucide-react";
+import { ChevronLeft, MapPin, Check, Pencil, Sparkles, BadgeCheck, Lock } from "lucide-react";
 import { getSession } from "@/lib/auth";
 import { getBids } from "@/lib/auctions";
 import { isSandbox } from "@/lib/payments";
@@ -7,7 +7,7 @@ import { computeFee, getActiveReservation, hasPaidReservation } from "@/lib/rese
 import { getT } from "@/lib/prefs";
 import { Price } from "./price";
 import { ReserveDialog } from "./reserve-dialog";
-import { startConversation } from "@/app/actions/messages";
+import { StartConversation } from "./start-conversation";
 import { getFavouriteKeys, type Listing } from "@/lib/listings";
 import { AuctionPanel } from "./auction-panel";
 import { DeleteButton } from "./delete-button";
@@ -25,7 +25,7 @@ export async function ListingDetail({ listing, locked = false }: { listing: List
   const auction = listing.auction;
   const bids = auction ? await getBids(auction.id) : [];
 
-  const active = await getActiveReservation(listing.kind, listing.id).catch(() => null);
+  const active = await getActiveReservation(listing.kind, listing.id);
   const type = listing.category === "Rent" ? "rent" : "sale";
   const fee = computeFee(Number.parseFloat(String(listing.price).replace(/[^\d.]/g, "")), listing.currency, type);
   const liveAuction = auction?.status === "live";
@@ -133,9 +133,7 @@ export async function ListingDetail({ listing, locked = false }: { listing: List
                 {locked && !canMessage && <p role="status" className="rounded-lg bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-700 dark:text-amber-300">{t("lockedBanner")}</p>}
                 {reserveBlock}
                 {canMessage ? (
-                  <form action={startConversation.bind(null, listing.kind, listing.id)}>
-                    <button className="btn-ghost w-full"><MessageCircle className="size-4" /> {t("messageSeller")}</button>
-                  </form>
+                  <StartConversation kind={listing.kind} listingId={listing.id} />
                 ) : (
                   <p className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-line px-3 py-2.5 text-center text-xs font-medium text-muted"><Lock className="size-3.5 shrink-0" /> {t("unlockMessaging")}</p>
                 )}

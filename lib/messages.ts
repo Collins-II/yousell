@@ -17,6 +17,7 @@ export type ConversationView = {
 };
 
 export type MessageView = { id: string; mine: boolean; body: string; at: string };
+export type MessageCursor = Pick<MessageView, "id" | "at">;
 
 type ConvDoc = {
   _id: unknown;
@@ -63,11 +64,16 @@ export async function getConversation(id: string, userId: string) {
   return doc ? toConversationView(doc, userId) : null;
 }
 
-export async function getMessages(conversationId: string, userId: string, after?: string): Promise<MessageView[]> {
+export async function getMessages(conversationId: string, userId: string, after?: MessageCursor): Promise<MessageView[]> {
   await connectDb();
   const filter: Record<string, unknown> = { conversationId };
-  if (after && !Number.isNaN(Date.parse(after))) filter.createdAt = { $gt: new Date(after) };
-  const docs = await Message.find(filter).sort({ createdAt: 1 }).limit(200).lean<{ _id: unknown; senderId: unknown; body: string; createdAt: Date }[]>();
+  if (after) {
+    if (!isObjectId(after.id) || Number.isNaN(Date.parse(after.at))) throw new Error("Invalid message cursor");
+    const at = new Date(after.at);
+    filter.$or = [{ createdAt: { $gt: at } }, { createdAt: at, _id: { $gt: new Types.ObjectId(after.id) } }];
+  }
+  const docs = await Message.find(filter).sort(after ? { createdAt: 1, _id: 1 } : { createdAt: -1, _id: -1 }).limit(200).lean<{ _id: unknown; senderId: unknown; body: string; createdAt: Date }[]>();
+  if (!after) docs.reverse();
   return docs.map((m) => ({ id: String(m._id), mine: String(m.senderId) === userId, body: m.body, at: m.createdAt.toISOString() }));
 }
 

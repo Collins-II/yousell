@@ -43,16 +43,18 @@ export async function destroySession() {
 export const getSession = cache(async (): Promise<SessionUser | null> => {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
+  const key = secret();
+  let payload: Awaited<ReturnType<typeof jwtVerify>>["payload"];
   try {
-    const { payload } = await jwtVerify(token, secret(), { algorithms: ["HS256"] });
-    if (!payload.sub) return null;
-    await connectDb();
-    const account = await User.findById(payload.sub).select("suspended").lean<{ suspended?: boolean }>();
-    if (account?.suspended) return null;
-    return { id: payload.sub, name: String(payload.name ?? ""), email: String(payload.email ?? "") };
+    ({ payload } = await jwtVerify(token, key, { algorithms: ["HS256"] }));
   } catch {
     return null;
   }
+  if (!payload.sub) return null;
+  await connectDb();
+  const account = await User.findById(payload.sub).select("suspended").lean<{ suspended?: boolean }>();
+  if (!account || account.suspended) return null;
+  return { id: payload.sub, name: String(payload.name ?? ""), email: String(payload.email ?? "") };
 });
 
 export async function requireSession(next = "/") {

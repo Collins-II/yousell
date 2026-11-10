@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Building2, CarFront, MapPin } from "lucide-react";
+import { ArrowDownUp, ArrowLeft, ArrowRight, Building2, CarFront, MapPin } from "lucide-react";
 import type { CountryRegions } from "@/lib/regions";
 import { usePrefs } from "./prefs-provider";
 
@@ -35,6 +35,7 @@ export function RegionCounter({ data }: { data: CountryRegions[] }) {
   const [country, setCountry] = useState(data[0]?.country ?? "");
   const [seen, setSeen] = useState(false);
   const root = useRef<HTMLElement>(null);
+  const rail = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
     const el = root.current;
@@ -55,6 +56,11 @@ export function RegionCounter({ data }: { data: CountryRegions[] }) {
   const current = data.find((c) => c.country === country) ?? data[0];
   if (!current) return null;
   const max = Math.max(1, ...current.regions.map((r) => r.total));
+  const scroll = (direction: -1 | 1) => {
+    const el = rail.current;
+    if (!el) return;
+    el.scrollBy({ left: direction * el.clientWidth * 0.8, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+  };
 
   return (
     <section ref={root} aria-labelledby="regions" className="overflow-hidden rounded-2xl border border-line bg-surface">
@@ -71,13 +77,15 @@ export function RegionCounter({ data }: { data: CountryRegions[] }) {
       </div>
 
       {data.length > 1 && (
-        <div role="tablist" aria-label={t("regionsCountry")} className="flex flex-wrap gap-2 border-b border-line px-5 py-3 sm:px-7">
+        <div aria-label={t("regionsCountry")} className="flex flex-wrap gap-2 border-b border-line px-5 py-3 sm:px-7">
           {data.map((c) => (
             <button
               key={c.country}
-              role="tab"
-              aria-selected={c.country === current.country}
-              onClick={() => setCountry(c.country)}
+              aria-pressed={c.country === current.country}
+              onClick={() => {
+                setCountry(c.country);
+                rail.current?.scrollTo({ left: 0 });
+              }}
               className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${c.country === current.country ? "border-indigo-600 bg-indigo-600 text-white" : "border-line text-muted hover:border-indigo-500/50 hover:text-fg"}`}
             >
               {c.country}
@@ -87,30 +95,43 @@ export function RegionCounter({ data }: { data: CountryRegions[] }) {
         </div>
       )}
 
-      <ul key={current.country} className="grid grid-cols-2 gap-2.5 p-3 sm:grid-cols-3 sm:gap-3 sm:p-6 lg:grid-cols-4 xl:grid-cols-5">
+      <div className="flex items-center justify-between gap-3 px-4 pt-5 sm:px-7">
+        <p className="flex items-center gap-2 text-xs font-medium text-muted">
+          <ArrowDownUp className="size-3.5 rotate-90 text-indigo-500" aria-hidden="true" />
+          {t("regionsScroll")}
+        </p>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => scroll(-1)} aria-label={t("regionsScrollPrevious")} aria-controls="region-list" className="grid size-9 place-items-center rounded-full border border-line bg-surface text-fg transition hover:border-indigo-500 hover:text-indigo-600">
+            <ArrowLeft className="size-4" aria-hidden="true" />
+          </button>
+          <button type="button" onClick={() => scroll(1)} aria-label={t("regionsScrollNext")} aria-controls="region-list" className="grid size-9 place-items-center rounded-full border border-line bg-surface text-fg transition hover:border-indigo-500 hover:text-indigo-600">
+            <ArrowRight className="size-4" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+      <ul ref={rail} id="region-list" aria-label={t("regionsTitle")} tabIndex={0} className="grid snap-x snap-mandatory grid-flow-col grid-rows-2 auto-cols-[minmax(190px,42%)] gap-3 overflow-x-auto overscroll-x-contain p-4 sm:auto-cols-[230px] sm:px-7 sm:pb-6">
         {current.regions.map((r, i) => (
-          <li key={r.name} className={`group relative overflow-hidden rounded-xl border border-line p-3 transition sm:p-4 hover:-translate-y-0.5 hover:border-indigo-500/40 hover:shadow-md ${r.total ? "bg-bg" : "bg-bg/50"}`}>
-            <div className="flex items-start justify-between gap-2">
-              <p className="flex items-center gap-1.5 text-xs font-semibold sm:text-[13px]"><MapPin className="size-3.5 text-indigo-500" />{r.name}</p>
-            </div>
-            <Counter value={r.total} run={seen} className={`mt-2 block text-3xl font-semibold sm:mt-3 sm:text-4xl leading-none tracking-tight ${r.total ? "" : "text-muted/50"}`} />
-            <p className="mt-1 text-xs text-muted">{r.total === 0 ? t("regionsEmpty") : r.total === 1 ? t("regionsOne") : t("regionsListings", { n: r.total })}</p>
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-line">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-indigo-400 to-indigo-600 transition-[width] duration-1000 ease-out"
-                style={{ width: seen ? `${(r.total / max) * 100}%` : "0%", transitionDelay: `${i * 60}ms` }}
-              />
-            </div>
-            {r.total > 0 && (
-              <div className="mt-3 flex gap-2 text-[11px] font-semibold">
-                <Link href={`/properties?q=${encodeURIComponent(r.name)}`} className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-1 text-indigo-700 hover:bg-indigo-500/20 dark:text-indigo-300">
-                  <Building2 className="size-3" /> {r.properties}
-                </Link>
-                <Link href={`/cars?q=${encodeURIComponent(r.name)}`} className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-1 text-indigo-700 hover:bg-indigo-500/20 dark:text-indigo-300">
-                  <CarFront className="size-3" /> {r.cars}
-                </Link>
+          <li key={r.name} className="min-w-0 snap-start">
+            <Link prefetch={false} href={`/map?${new URLSearchParams({ country: current.country, region: r.name })}`} className="group flex h-full flex-col overflow-hidden rounded-xl border border-line bg-bg p-4 transition hover:border-indigo-500/50 hover:bg-indigo-500/5 hover:shadow-md focus-visible:outline-offset-[-2px]">
+              <div className="flex items-start justify-between gap-2">
+                <span className="flex min-w-0 items-center gap-2 text-sm font-semibold"><span className="grid size-8 shrink-0 place-items-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-300"><MapPin className="size-4" aria-hidden="true" /></span><span className="break-words">{r.name}</span></span>
+                <ArrowRight className="size-4 shrink-0 text-muted transition group-hover:translate-x-1 group-hover:text-indigo-500" aria-hidden="true" />
               </div>
-            )}
+              <div className="mt-4 flex items-baseline gap-2">
+                <Counter value={r.total} run={seen} className={`text-3xl font-semibold leading-none tracking-tight ${r.total ? "" : "text-muted/60"}`} />
+                <span className="text-xs text-muted">{r.total === 0 ? t("regionsEmpty") : t("regionCountLabel")}</span>
+              </div>
+              <div className="mt-3 h-1 overflow-hidden rounded-full bg-line">
+                <div className="h-full rounded-full bg-gradient-to-r from-indigo-400 to-indigo-600 transition-[width] duration-1000 ease-out motion-reduce:transition-none" style={{ width: seen ? `${(r.total / max) * 100}%` : "0%", transitionDelay: `${i * 60}ms` }} />
+              </div>
+              <div className="mt-auto flex items-center justify-between gap-2 pt-4 text-xs">
+                <span className="flex items-center gap-3 font-semibold text-muted">
+                  <span className="inline-flex items-center gap-1" title={t("properties")}><Building2 className="size-3.5" aria-hidden="true" /> <span className="sr-only">{t("properties")} </span>{r.properties}</span>
+                  <span className="inline-flex items-center gap-1" title={t("cars")}><CarFront className="size-3.5" aria-hidden="true" /> <span className="sr-only">{t("cars")} </span>{r.cars}</span>
+                </span>
+                <span className="font-semibold text-indigo-600 dark:text-indigo-300">{t("mapView")}</span>
+              </div>
+            </Link>
           </li>
         ))}
       </ul>

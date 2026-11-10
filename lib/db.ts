@@ -7,15 +7,19 @@ const globalCache = globalThis as unknown as { __mongoose?: Cache };
 const cache: Cache = (globalCache.__mongoose ??= { conn: null, promise: null });
 
 export async function connectDb() {
-  const uri = process.env.MONGODB_URL ?? process.env.MONGODB_URI;
-  if (!uri) throw new Error("MONGODB_URL is not set");
-  if (cache.conn) return cache.conn;
+  const uri = process.env.MONGODB_URL?.trim() || process.env.MONGODB_URI?.trim();
+  if (!uri) throw new Error("MongoDB connection is not configured: set MONGODB_URL or MONGODB_URI");
+  if (cache.conn && mongoose.connection.readyState === 1) return cache.conn;
+  if (mongoose.connection.readyState === 0) {
+    cache.conn = null;
+    cache.promise = null;
+  }
 
   if (!cache.promise) {
     const servers = process.env.MONGODB_DNS_SERVERS?.split(",").map((s) => s.trim()).filter(Boolean);
     if (servers?.length) dns.setServers(servers);
     // Background driver errors (e.g. SRV lookups) must not crash the process
-    mongoose.connection.on("error", (err) => console.error("[mongo]", err.message));
+    if (!mongoose.connection.listenerCount("error")) mongoose.connection.on("error", (err) => console.error("[mongo]", err.message));
     cache.promise = mongoose.connect(uri, {
       dbName: "yousell",
       serverSelectionTimeoutMS: 8000,

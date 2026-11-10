@@ -1,6 +1,7 @@
 import "server-only";
 import { connectDb } from "./db";
 import { Car, Property } from "./models";
+import { normalizeRegionName } from "./region-normalization";
 
 export type Region = { name: string; properties: number; cars: number; total: number };
 export type CountryRegions = { country: string; total: number; regions: Region[] };
@@ -10,7 +11,7 @@ const CATALOGUE: Record<string, string[]> = {
   Zambia: ["Central", "Copperbelt", "Eastern", "Luapula", "Lusaka", "Muchinga", "Northern", "North-Western", "Southern", "Western"],
 };
 
-const norm = (s: string) => s.trim().replace(/\s+/g, " ").replace(/ (province|state|county)$/i, "");
+const norm = normalizeRegionName;
 const key = (s: string) => norm(s).toLowerCase();
 
 type Row = { _id: { country?: string; state?: string }; n: number };

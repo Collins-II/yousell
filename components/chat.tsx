@@ -12,29 +12,50 @@ export function Chat({ conversationId, initial, locked = false, listingHref }: {
   const [messages, setMessages] = useState(initial);
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const bottom = useRef<HTMLDivElement>(null);
-  const last = useRef(initial.at(-1)?.at);
+  const last = useRef(initial.at(-1) ? { at: initial.at(-1)!.at, id: initial.at(-1)!.id } : undefined);
 
   const merge = useCallback((incoming: MessageView[]) => {
     if (!incoming.length) return;
     setMessages((cur) => {
       const seen = new Set(cur.map((m) => m.id));
       const fresh = incoming.filter((m) => !seen.has(m.id));
-      return fresh.length ? [...cur, ...fresh] : cur;
+      return fresh.length ? [...cur, ...fresh].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id)) : cur;
     });
-    last.current = incoming.at(-1)!.at;
   }, []);
 
   useEffect(() => {
-    const t = setInterval(async () => {
-      if (document.hidden) return;
-      merge(await fetchMessages(conversationId, last.current));
-    }, 4000);
-    return () => clearInterval(t);
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      if (!document.hidden) {
+        try {
+          const result = await fetchMessages(conversationId, last.current);
+          if (cancelled) return;
+          if (result.ok) {
+            merge(result.messages);
+            const newest = result.messages.at(-1);
+            if (newest) last.current = { at: newest.at, id: newest.id };
+            setRefreshError(null);
+          } else {
+            setRefreshError(result.error);
+          }
+        } catch (error) {
+          console.error("[messages] Unable to refresh conversation", error);
+          if (!cancelled) setRefreshError("Messages could not be refreshed. Retrying...");
+        }
+      }
+      if (!cancelled) timer = setTimeout(poll, 4000);
+    };
+    timer = setTimeout(poll, 4000);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [conversationId, merge]);
 
-  useEffect(() => bottom.current?.scrollIntoView({ block: "end" }), [messages.length]);
+  useEffect(() => {
+    bottom.current?.scrollIntoView({ block: "end" });
+  }, [messages.length]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,16 +63,22 @@ export function Chat({ conversationId, initial, locked = false, listingHref }: {
     if (!body) return;
     setError(null);
     start(async () => {
-      const res = await sendMessage(conversationId, body);
-      if (res.ok) {
-        setText("");
-        merge([res.message]);
-      } else setError(res.error);
+      try {
+        const res = await sendMessage(conversationId, body);
+        if (res.ok) {
+          setText("");
+          merge([res.message]);
+        } else setError(res.error);
+      } catch (error) {
+        console.error("[messages] Unable to send message", error);
+        setError("Unable to confirm that your message was sent. Check the conversation before retrying.");
+      }
     });
   };
 
   return (
     <div className="flex h-[60vh] flex-col">
+      {refreshError && <p role="status" className="error-box m-3">{refreshError}</p>}
       <div className="flex-1 space-y-2 overflow-y-auto p-4" aria-live="polite">
         {messages.length === 0 && <p className="py-10 text-center text-sm text-muted">{t("chatHello")}</p>}
         {messages.map((m) => (

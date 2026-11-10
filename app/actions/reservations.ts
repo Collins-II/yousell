@@ -172,7 +172,9 @@ async function release(r: Doc, event: "cancelled" | "declined", by: string, note
   let refunded = true;
   if (moved.paymentId) refunded = await refundPayment(moved.paymentId, `Reservation ${event}`).catch(() => false);
   if (!refunded) await Reservation.updateOne({ _id: r._id }, { $push: { history: entry("refund_failed", "system", "Refund needs an agent to retry") } });
-  await postReservationMessage(moved, String(event === "cancelled" ? moved.buyerId : moved.sellerId), `Reservation ${event}${note ? `: ${note}` : ""}. ${refunded ? "The fee has been refunded." : "The refund is being processed."}`).catch(() => {});
+  await postReservationMessage(moved, String(event === "cancelled" ? moved.buyerId : moved.sellerId), `Reservation ${event}${note ? `: ${note}` : ""}. ${refunded ? "The fee has been refunded." : "The refund is being processed."}`).catch((error) => {
+    console.error("[messages] Unable to post reservation update", error);
+  });
   done(moved);
   return refunded ? { ok: true } : { ok: false, error: "Closed, but the refund needs an agent to retry it." };
 }
@@ -187,7 +189,9 @@ export async function confirmReservation(id: string): Promise<Result> {
     { returnDocument: "after" },
   ).lean<Doc>();
   if (!moved) return { ok: false, error: "Only paid reservations awaiting confirmation can be confirmed." };
-  await postReservationMessage(moved, c.session.id, "Reservation confirmed. Let's arrange the viewing and handover here.").catch(() => {});
+  await postReservationMessage(moved, c.session.id, "Reservation confirmed. Let's arrange the viewing and handover here.").catch((error) => {
+    console.error("[messages] Unable to post reservation confirmation", error);
+  });
   done(moved);
   return { ok: true };
 }
@@ -219,7 +223,9 @@ export async function completeReservation(id: string): Promise<Result> {
   if (!moved) return { ok: false, error: "Only confirmed reservations can be closed." };
   const status = moved.type === "rent" ? "RENTED" : "SOLD";
   await (moved.kind === "property" ? Property : Car).updateOne({ _id: moved.listingId }, { $set: { status } });
-  await postReservationMessage(moved, c.session.id, "Deal closed. Thank you for using YouSell.").catch(() => {});
+  await postReservationMessage(moved, c.session.id, "Deal closed. Thank you for using YouSell.").catch((error) => {
+    console.error("[messages] Unable to post deal completion", error);
+  });
   done(moved);
   return { ok: true };
 }

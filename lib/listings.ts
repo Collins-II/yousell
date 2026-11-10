@@ -3,6 +3,7 @@ import type { PipelineStage } from "mongoose";
 import { connectDb } from "./db";
 import { Auction, Car, Favourite, Property, isObjectId } from "./models";
 import { withAuctions, type AuctionInfo } from "./auctions";
+import { regionNamePattern } from "./region-normalization";
 
 export type Kind = "property" | "car";
 
@@ -230,9 +231,14 @@ export async function getMyListings(userId: string) {
 
 export { formatPrice } from "./format";
 
-export async function getMapListings(kind: Kind | "all", q?: string, limit = 400) {
+export async function getMapListings(kind: Kind | "all", q?: string, limit = 400, region?: { country: string; state: string }) {
   await connectDb();
-  const filter: Raw = { "map.lat": { $ne: null }, "map.lng": { $ne: null }, ...textMatch(q) };
+  const filter: Raw = {
+    "map.lat": { $ne: null },
+    "map.lng": { $ne: null },
+    ...textMatch(q),
+    ...(region ? { "address.country": regionNamePattern(region.country), "address.state": regionNamePattern(region.state) } : {}),
+  };
   const carFilter = { ...filter, status: { $nin: ["SOLD", "PURCHASED"] } };
   const [props, cars] = await Promise.all([
     kind === "car" ? [] : Property.find({ ...filter, status: { $nin: ["SOLD", "RENTED"] } }).sort({ _id: -1 }).limit(limit).lean(),
