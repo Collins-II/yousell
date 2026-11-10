@@ -71,14 +71,15 @@ export default async function HomePage() {
       <section aria-labelledby="how">
         <p className="eyebrow">{t("agentService")}</p>
         <h2 id="how" className="mt-1 text-xl font-semibold">{t("howTitle")}</h2>
-        <ol className="mt-4 grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+        <ol className="mt-4 grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-4 lg:gap-4">
           {steps.map(({ title, text }, i) => (
-            <li key={title} className="flex items-start gap-2 rounded-2xl border border-line bg-cream p-3 sm:gap-3 sm:p-4">
-              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-indigo-600 text-xs font-bold text-white">{i + 1}</span>
-              <div>
-                <h3 className="text-sm font-semibold">{title}</h3>
-                <p className="mt-0.5 text-[11px] leading-snug text-muted sm:text-[13px] sm:leading-relaxed">{text}</p>
+            <li key={title} className="relative flex items-start gap-3.5 overflow-hidden rounded-2xl border border-line bg-cream p-4 transition hover:border-indigo-500/40 sm:p-5 lg:flex-col lg:gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-full bg-indigo-600 text-sm font-bold text-white shadow-sm shadow-indigo-600/30">{i + 1}</span>
+              <div className="min-w-0">
+                <h3 className="text-[15px] font-semibold leading-tight">{title}</h3>
+                <p className="mt-1 text-[13px] leading-relaxed text-muted">{text}</p>
               </div>
+              <span aria-hidden className="pointer-events-none absolute -right-1 -top-3 select-none text-6xl font-black text-indigo-500/[0.07]">{i + 1}</span>
             </li>
           ))}
         </ol>

@@ -4,9 +4,10 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { connectDb } from "@/lib/db";
-import { Auction, Bid, Car, Favourite, Image, Property, isObjectId } from "@/lib/models";
+import { Auction, Bid, Car, Comment, Favourite, Image, Property, isObjectId } from "@/lib/models";
 import { getSession } from "@/lib/auth";
 import { suggestIncrement } from "@/lib/auctions";
+import { getAccount, listingAccess } from "@/lib/accounts";
 import { getPlan, FREE_LISTING_LIMIT } from "@/lib/billing";
 
 export type ListingState = { error?: string } | undefined;
@@ -87,6 +88,10 @@ export async function createListing(_: ListingState, formData: FormData): Promis
   const d = parsed.data;
 
   await connectDb();
+  const account = await getAccount(session.id);
+  if (!account) return { error: "Account not found" };
+  const access = listingAccess(account);
+  if (!access.ok) return { error: access.reason };
   const plan = await getPlan(session.id);
   if (!plan.isPro && plan.used >= FREE_LISTING_LIMIT) {
     return { error: `Free accounts can have ${FREE_LISTING_LIMIT} active listings. Upgrade to Pro for unlimited listings.` };
@@ -216,7 +221,7 @@ export async function deleteListing(kind: Kind, id: string): Promise<{ error?: s
     return { error: "This auction already has bids and can't be deleted until it ends." };
   }
   if (auction) await Promise.all([Auction.deleteOne({ _id: auction._id }), Bid.deleteMany({ auctionId: auction._id })]);
-  await Promise.all([model.deleteOne({ _id: id, author: session.id }), Favourite.deleteMany({ kind, listingId: id })]);
+  await Promise.all([model.deleteOne({ _id: id, author: session.id }), Favourite.deleteMany({ kind, listingId: id }), Comment.deleteMany({ kind, listingId: id })]);
   revalidatePath("/dashboard");
   revalidatePath(kind === "property" ? "/properties" : "/cars");
   return {};

@@ -4,14 +4,17 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { login, register, type AuthState } from "@/app/actions/auth";
+import type { AccountType } from "@/lib/account-types";
+import { OnboardingFields } from "./onboarding-fields";
 
-export function AuthForm({ mode, next }: { mode: "login" | "register"; next: string }) {
+export function AuthForm({ mode, next, type = "client" }: { mode: "login" | "register"; next: string; type?: AccountType }) {
   const [state, action, pending] = useActionState<AuthState, FormData>(mode === "login" ? login : register, undefined);
   const isLogin = mode === "login";
 
   return (
     <form action={action} className="card space-y-4 p-6 sm:p-8">
       <input type="hidden" name="next" value={next} />
+      {!isLogin && <OnboardingFields initialType={type} />}
       {!isLogin && (
         <label className="block space-y-1.5">
           <span className="text-sm font-medium">Full name</span>
@@ -25,7 +28,7 @@ export function AuthForm({ mode, next }: { mode: "login" | "register"; next: str
       <label className="block space-y-1.5">
         <span className="text-sm font-medium">Password</span>
         <input name="password" type="password" autoComplete={isLogin ? "current-password" : "new-password"} minLength={isLogin ? undefined : 8} required className="field" />
-        {!isLogin && <span className="text-xs text-muted">At least 8 characters</span>}
+        {!isLogin && <span className="text-xs text-muted">At least 8 characters, with a letter and a number</span>}
       </label>
       {state?.error && (
         <p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-600 dark:text-rose-300">

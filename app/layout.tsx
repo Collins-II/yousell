@@ -29,7 +29,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const session = await getSession();
   const [{ locale, currency }, rates] = await Promise.all([getPrefs(), getRates()]);
   const [unread, pending] = session
-    ? await Promise.all([getUnreadCount(session.id).catch(() => 0), isAgent(session.id).then((a) => getPendingReservationCount(session.id, a)).catch(() => 0)])
+    ? await Promise.all([
+        getUnreadCount(session.id).catch(() => 0),
+        isAgent(session.id).then((a) => getPendingReservationCount(session.id, a)).catch(() => 0),
+      ])
     : [0, 0];
 
   return (

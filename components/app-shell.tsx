@@ -25,6 +25,7 @@ export function AppShell({ user, unread, pending, children }: { user: User; unre
     { href: "/reservations", label: t("reservations"), badge: pending },
     { href: "/messages", label: t("messages"), badge: unread },
     { href: "/favourites", label: t("favourites") },
+    ...(user ? [{ href: "/account", label: "Account" }] : []),
   ];
 
   const tabs = [

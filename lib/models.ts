@@ -93,6 +93,29 @@ const userSchema = new Schema(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     image: String,
     role: { type: String, default: "user" },
+    // Who the person is on the marketplace. `role` stays reserved for platform staff ("agent").
+    accountType: { type: String, enum: ["client", "landlord", "agent"] },
+    phone: String,
+    profile: {
+      agency: String,
+      licenseNo: String,
+      idNumber: { type: String, select: false },
+      yearsExperience: Number,
+      regions: [String],
+      specialties: [String],
+      website: String,
+      bio: String,
+    },
+    verification: {
+      status: { type: String, enum: ["none", "pending", "verified", "rejected"], default: "none" },
+      submittedAt: Date,
+      reviewedAt: Date,
+      reviewedBy: String,
+      note: String,
+      history: [{ _id: false, at: Date, event: String, by: String, note: String }],
+    },
+    suspended: { type: Boolean, default: false },
+    termsAcceptedAt: Date,
     passwordHash: { type: String, select: false },
   },
   { collection: "users", timestamps: true, strict: false },
@@ -209,11 +232,25 @@ const reservationSchema = new Schema(
     holdExpiresAt: Date,
     paymentId: Schema.Types.ObjectId,
     paidAt: Date,
+    // The seller must close the deal before this moment or the reservation lapses and the buyer is refunded.
+    dealDueAt: Date,
     history: [historySchema],
   },
   { collection: "ys_reservations", timestamps: true },
 );
 reservationSchema.index({ kind: 1, listingId: 1 }, { unique: true, partialFilterExpression: { active: true } });
+
+const commentSchema = new Schema(
+  {
+    kind: { type: String, enum: ["property", "car"], required: true },
+    listingId: { type: Schema.Types.ObjectId, required: true },
+    authorId: { type: Schema.Types.ObjectId, required: true, index: true },
+    authorName: String,
+    body: { type: String, required: true, maxlength: 1000 },
+  },
+  { collection: "ys_comments", timestamps: true },
+);
+commentSchema.index({ kind: 1, listingId: 1, createdAt: -1 });
 
 const paymentSchema = new Schema(
   {
@@ -248,6 +285,7 @@ export const Conversation = models.Conversation || model("Conversation", convers
 export const Message = models.Message || model("Message", messageSchema);
 export const Image = models.Image || model("Image", imageSchema);
 export const Reservation = models.Reservation || model("Reservation", reservationSchema);
+export const Comment = models.Comment || model("Comment", commentSchema);
 export const Payment = models.Payment || model("Payment", paymentSchema);
 
 export const isObjectId = (id: string) => mongoose.isValidObjectId(id);

@@ -4,6 +4,7 @@ import { connectDb } from "./db";
 import { Auction, Car, Favourite, Property, isObjectId } from "./models";
 import { withAuctions, type AuctionInfo } from "./auctions";
 import { regionNamePattern } from "./region-normalization";
+import { getReservedIds } from "./reservations";
 
 export type Kind = "property" | "car";
 
@@ -145,7 +146,9 @@ function textMatch(q?: string) {
 export async function searchListings(kind: Kind, f: Filters) {
   await connectDb();
   const page = Math.max(1, f.page ?? 1);
+  const reserved = await getReservedIds(kind);
   const match: Raw = { ...textMatch(f.q), ...priceMatch(f), suspended: { $ne: true } };
+  if (reserved.length) match._id = { $nin: reserved };
   if (f.category) match.listingCategory = kind === "car" ? f.category.toUpperCase() : f.category;
 
   if (kind === "property") {
@@ -191,14 +194,19 @@ export async function getListing(kind: Kind, id: string): Promise<Listing | null
 export async function getLatest(kind: Kind, limit = 4) {
   await connectDb();
   const model = kind === "property" ? Property : Car;
-  const filter = kind === "car" ? { status: { $nin: ["SOLD", "PURCHASED"] } } : { status: { $nin: ["SOLD", "RENTED"] } };
+  const reserved = await getReservedIds(kind);
+  const filter = { ...(kind === "car" ? { status: { $nin: ["SOLD", "PURCHASED"] } } : { status: { $nin: ["SOLD", "RENTED"] } }), ...(reserved.length ? { _id: { $nin: reserved } } : {}) };
   const docs = await model.find(filter).sort({ _id: -1 }).limit(limit).lean();
   return withAuctions(docs.map(kind === "property" ? toProperty : toCar) as Listing[]);
 }
 
 export async function getCounts() {
   await connectDb();
-  const [properties, cars] = await Promise.all([Property.countDocuments({ status: { $nin: ["SOLD", "RENTED"] } }), Car.countDocuments({ status: { $nin: ["SOLD", "PURCHASED"] } })]);
+  const [reservedProps, reservedCars] = await Promise.all([getReservedIds("property"), getReservedIds("car")]);
+  const [properties, cars] = await Promise.all([
+    Property.countDocuments({ status: { $nin: ["SOLD", "RENTED"] }, _id: { $nin: reservedProps } }),
+    Car.countDocuments({ status: { $nin: ["SOLD", "PURCHASED"] }, _id: { $nin: reservedCars } }),
+  ]);
   return { properties, cars };
 }
 
@@ -229,6 +237,19 @@ export async function getMyListings(userId: string) {
   return withAuctions([...props.map(toProperty), ...cars.map(toCar)] as Listing[]);
 }
 
+/** Public, open listings by one seller: no suspended, closed or reserved items. */
+export async function getAgentListings(authorId: string, limit = 24) {
+  if (!isObjectId(authorId)) return [];
+  await connectDb();
+  const [reservedProps, reservedCars] = await Promise.all([getReservedIds("property"), getReservedIds("car")]);
+  const open = { author: authorId, suspended: { $ne: true } };
+  const [props, cars] = await Promise.all([
+    Property.find({ ...open, status: { $nin: ["SOLD", "RENTED"] }, _id: { $nin: reservedProps } }).sort({ _id: -1 }).limit(limit).lean(),
+    Car.find({ ...open, status: { $nin: ["SOLD", "PURCHASED"] }, _id: { $nin: reservedCars } }).sort({ _id: -1 }).limit(limit).lean(),
+  ]);
+  return withAuctions([...props.map(toProperty), ...cars.map(toCar)] as Listing[]);
+}
+
 export { formatPrice } from "./format";
 
 export async function getMapListings(kind: Kind | "all", q?: string, limit = 400, region?: { country: string; state: string }) {
@@ -239,9 +260,10 @@ export async function getMapListings(kind: Kind | "all", q?: string, limit = 400
     ...textMatch(q),
     ...(region ? { "address.country": regionNamePattern(region.country), "address.state": regionNamePattern(region.state) } : {}),
   };
-  const carFilter = { ...filter, status: { $nin: ["SOLD", "PURCHASED"] } };
+  const [reservedProps, reservedCars] = await Promise.all([getReservedIds("property"), getReservedIds("car")]);
+  const carFilter = { ...filter, status: { $nin: ["SOLD", "PURCHASED"] }, _id: { $nin: reservedCars } };
   const [props, cars] = await Promise.all([
-    kind === "car" ? [] : Property.find({ ...filter, status: { $nin: ["SOLD", "RENTED"] } }).sort({ _id: -1 }).limit(limit).lean(),
+    kind === "car" ? [] : Property.find({ ...filter, status: { $nin: ["SOLD", "RENTED"] }, _id: { $nin: reservedProps } }).sort({ _id: -1 }).limit(limit).lean(),
     kind === "property" ? [] : Car.find(carFilter).sort({ _id: -1 }).limit(limit).lean(),
   ]);
   return withAuctions([...props.map(toProperty), ...cars.map(toCar)] as Listing[]);

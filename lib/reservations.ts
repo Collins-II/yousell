@@ -1,5 +1,6 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
+import type { Types } from "mongoose";
 import { connectDb } from "./db";
 import { Conversation, Message, Payment, Reservation, User } from "./models";
 import { getProvider, PENDING_TIMEOUT_MS, type Outcome } from "./payments";
@@ -8,6 +9,7 @@ export type Kind = "property" | "car";
 export type ReservationStatus = "pending_payment" | "held" | "confirmed" | "completed" | "cancelled" | "declined" | "expired";
 
 export const HOLD_MS = 10 * 60_000;
+export const DEAL_MS = 48 * 3_600_000;
 
 // Mobile money settles in kwacha, so listing prices in other currencies are converted for the fee only.
 const FX_TO_ZMW: Record<string, number> = {
@@ -53,6 +55,45 @@ export async function expireStale(filter: Record<string, unknown> = {}) {
     { status: "pending_payment", holdExpiresAt: { $lte: now }, ...filter },
     { $set: { status: "expired", active: false }, $push: { history: { at: now, event: "expired", by: "system", note: "Payment window closed" } } },
   );
+  await expireOverdueDeals(filter);
+}
+
+/**
+ * Paid reservations the seller never closed within DEAL_MS lapse: the listing goes back on the
+ * marketplace and the buyer is refunded. Runs lazily, and each reservation is moved by an atomic compare-and-set.
+ */
+export async function expireOverdueDeals(filter: Record<string, unknown> = {}) {
+  const now = new Date();
+  const overdue = {
+    active: true,
+    status: { $in: ["held", "confirmed"] },
+    $or: [{ dealDueAt: { $lte: now } }, { dealDueAt: { $exists: false }, paidAt: { $lte: new Date(now.getTime() - DEAL_MS) } }],
+  };
+  const stale = await Reservation.find({ ...overdue, ...filter }).select("_id").limit(50).lean<{ _id: unknown }[]>();
+  for (const { _id } of stale) {
+    const moved = await Reservation.findOneAndUpdate(
+      { _id, ...overdue },
+      { $set: { status: "expired", active: false }, $push: { history: { at: now, event: "expired", by: "system", note: "Deal was not closed within 48 hours" } } },
+      { returnDocument: "after" },
+    ).lean<Doc>();
+    if (!moved) continue;
+    let refunded = true;
+    if (moved.paymentId) refunded = await refundPayment(moved.paymentId, "Seller did not close the deal within 48 hours").catch(() => false);
+    if (!refunded) await Reservation.updateOne({ _id }, { $push: { history: { at: new Date(), event: "refund_failed", by: "system", note: "Refund needs an agent to retry" } } });
+    await postReservationMessage(moved, String(moved.sellerId), `Reservation expired because the deal wasn't closed within 48 hours. ${refunded ? "The fee has been refunded." : "The refund is being processed."}`).catch((error) => {
+      console.error("[messages] Unable to post reservation expiry", error);
+    });
+  }
+}
+
+/** Listings with a paid, still-open reservation. They are off the public marketplace until the deal closes or lapses. */
+export async function getReservedIds(kind?: Kind): Promise<Types.ObjectId[]> {
+  await connectDb();
+  await expireOverdueDeals();
+  const held = await Reservation.find({ ...(kind ? { kind } : {}), active: true, status: { $in: ["held", "confirmed"] } })
+    .select("listingId")
+    .lean<{ listingId: Types.ObjectId }[]>();
+  return held.map((h) => h.listingId);
 }
 
 export type ReservationView = {
@@ -73,6 +114,7 @@ export type ReservationView = {
   sellerName: string;
   holdExpiresAt: string | null;
   paidAt: string | null;
+  dealDueAt: string | null;
   createdAt: string;
   history: { at: string; event: string; by: string; note: string }[];
   paymentStatus: string | null;
@@ -99,6 +141,7 @@ function toView(d: Doc, paymentStatus: string | null): ReservationView {
     sellerName: d.sellerName ?? "Seller",
     holdExpiresAt: d.holdExpiresAt ? new Date(d.holdExpiresAt).toISOString() : null,
     paidAt: d.paidAt ? new Date(d.paidAt).toISOString() : null,
+    dealDueAt: d.dealDueAt ? new Date(d.dealDueAt).toISOString() : d.paidAt ? new Date(new Date(d.paidAt).getTime() + DEAL_MS).toISOString() : null,
     createdAt: new Date(d.createdAt).toISOString(),
     history: (d.history ?? []).map((h: Doc) => ({ at: new Date(h.at).toISOString(), event: h.event ?? "", by: h.by ?? "", note: h.note ?? "" })),
     paymentStatus,
@@ -115,10 +158,11 @@ async function withPayments(docs: Doc[]) {
 export async function getReservationLists(userId: string, agent: boolean) {
   await connectDb();
   await expireStale();
-  const visible = { status: { $ne: "expired" } };
+  // Unpaid holds that lapsed are noise; paid reservations that lapsed stay visible so refunds are traceable.
+  const visible = { $or: [{ status: { $ne: "expired" } }, { paidAt: { $ne: null } }] };
   const [mine, incoming, all] = await Promise.all([
     Reservation.find({ buyerId: userId, ...visible }).sort({ createdAt: -1 }).limit(100).lean<Doc[]>(),
-    Reservation.find({ sellerId: userId, ...visible, status: { $nin: ["expired", "pending_payment"] } }).sort({ createdAt: -1 }).limit(100).lean<Doc[]>(),
+    Reservation.find({ sellerId: userId, ...visible, status: { $ne: "pending_payment" } }).sort({ createdAt: -1 }).limit(100).lean<Doc[]>(),
     agent ? Reservation.find({}).sort({ createdAt: -1 }).limit(200).lean<Doc[]>() : Promise.resolve([] as Doc[]),
   ]);
   const [m, i, a] = await Promise.all([withPayments(mine), withPayments(incoming), withPayments(all)]);
@@ -218,7 +262,7 @@ export async function settlePayment(paymentId: string, outcome: Outcome) {
   const reservation = await Reservation.findOneAndUpdate(
     { _id: payment.reservationId, active: true, status: "pending_payment" },
     {
-      $set: { status: "held", paidAt: now, paymentId: payment._id },
+      $set: { status: "held", paidAt: now, dealDueAt: new Date(now.getTime() + DEAL_MS), paymentId: payment._id },
       $unset: { holdExpiresAt: 1 },
       $push: { history: { at: now, event: "paid", by: "system", note: `${payment.network.toUpperCase()} ${payment.msisdnMasked ?? ""}`.trim() } },
     },

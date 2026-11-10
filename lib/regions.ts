@@ -2,6 +2,7 @@ import "server-only";
 import { connectDb } from "./db";
 import { Car, Property } from "./models";
 import { normalizeRegionName } from "./region-normalization";
+import { getReservedIds } from "./reservations";
 
 export type Region = { name: string; properties: number; cars: number; total: number };
 export type CountryRegions = { country: string; total: number; regions: Region[] };
@@ -20,9 +21,10 @@ type Row = { _id: { country?: string; state?: string }; n: number };
 export async function getRegionCounts(): Promise<CountryRegions[]> {
   await connectDb();
   const group = [{ $group: { _id: { country: "$address.country", state: "$address.state" }, n: { $sum: 1 } } }];
+  const [reservedProps, reservedCars] = await Promise.all([getReservedIds("property"), getReservedIds("car")]);
   const [props, cars] = await Promise.all([
-    Property.aggregate<Row>([{ $match: { status: { $nin: ["SOLD", "RENTED"] } } }, ...group]),
-    Car.aggregate<Row>([{ $match: { status: { $nin: ["SOLD", "PURCHASED"] } } }, ...group]),
+    Property.aggregate<Row>([{ $match: { status: { $nin: ["SOLD", "RENTED"] }, _id: { $nin: reservedProps } } }, ...group]),
+    Car.aggregate<Row>([{ $match: { status: { $nin: ["SOLD", "PURCHASED"] }, _id: { $nin: reservedCars } } }, ...group]),
   ]);
 
   const countries = new Map<string, { label: string; regions: Map<string, Region> }>();

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronLeft, MapPin, Check, Pencil, Sparkles, BadgeCheck, Lock } from "lucide-react";
+import { ChevronLeft, MapPin, Check, Pencil, Sparkles, BadgeCheck, Lock, UserRound } from "lucide-react";
 import { getSession } from "@/lib/auth";
 import { getBids } from "@/lib/auctions";
 import { isSandbox } from "@/lib/payments";
@@ -10,6 +10,7 @@ import { ReserveDialog } from "./reserve-dialog";
 import { StartConversation } from "./start-conversation";
 import { getFavouriteKeys, type Listing } from "@/lib/listings";
 import { AuctionPanel } from "./auction-panel";
+import { Comments } from "./comments";
 import { DeleteButton } from "./delete-button";
 import { FavouriteButton } from "./favourite-button";
 import { Gallery } from "./gallery";
@@ -95,6 +96,8 @@ export async function ListingDetail({ listing, locked = false }: { listing: List
               />
             </section>
           )}
+
+          <Comments kind={listing.kind} listingId={listing.id} sellerId={listing.authorId} path={path} />
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
@@ -121,6 +124,12 @@ export async function ListingDetail({ listing, locked = false }: { listing: List
                 <Price amount={listing.price} currency={listing.currency} />
                 {listing.category === "Rent" && <span className="font-sans text-base font-medium text-muted"> {t("perMonth")}</span>}
               </p>
+            )}
+
+            {listing.authorId && (
+              <Link href={`/agents/${listing.authorId}`} className="flex items-center gap-2 rounded-lg bg-bg px-3 py-2 text-sm font-medium text-indigo-600 transition hover:bg-indigo-500/10 dark:text-indigo-300">
+                <UserRound className="size-4" /> {t("viewSellerProfile")}
+              </Link>
             )}
 
             {isOwner ? (

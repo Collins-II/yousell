@@ -147,6 +147,32 @@ const en = {
   chatGoToListing: "Go to listing",
   chatHello: "Say hello and ask about the listing.",
   chatPlaceholder: "Write a message…",
+
+  commentsTitle: "Questions & comments",
+  commentsWrite: "Write a comment",
+  commentsPlaceholder: "Ask the seller a question or share your thoughts…",
+  commentsPost: "Post",
+  commentsSignIn: "to join the conversation.",
+  commentsEmpty: "No comments yet. Be the first to ask a question.",
+  commentsSeller: "Seller",
+  commentsDelete: "Delete comment",
+  commentsDeleteConfirm: "Delete this comment?",
+  viewSellerProfile: "View seller profile",
+
+  profileEyebrow: "Seller profile",
+  profileVerified: "Verified agent",
+  profileMemberSince: "Member since {date}",
+  profileScore: "Performance score",
+  profileListings: "Active listings",
+  profileSales: "Deals closed",
+  profileEngagement: "Buyer engagement",
+  profileResponse: "Response rate",
+  profileProperties: "Properties",
+  profileCars: "Cars",
+  profileBreakdown: "How this score is made",
+  profileListingsTitle: "Listings by {name}",
+  profileNoListings: "No active listings right now.",
+  profileBack: "Back to home",
 } as const;
 
 export type Key = keyof typeof en;

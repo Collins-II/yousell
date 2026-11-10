@@ -147,6 +147,7 @@ async function load(id: string): Promise<Loaded> {
   if (!session) return { error: "Please sign in." };
   if (!isObjectId(id)) return { error: "Reservation not found." };
   await connectDb();
+  await expireStale({ _id: id });
   const r = await Reservation.findById(id).lean<Doc>();
   if (!r) return { error: "Reservation not found." };
   const agent = await isAgent(session.id);

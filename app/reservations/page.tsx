@@ -19,6 +19,14 @@ const tone: Record<string, string> = {
 };
 const statusLabel: Record<string, string> = { pending_payment: "Awaiting payment", held: "Paid · awaiting confirmation", confirmed: "Confirmed", completed: "Completed", cancelled: "Cancelled", declined: "Declined", expired: "Expired" };
 
+function dueText(r: ReservationView) {
+  if (!r.dealDueAt) return null;
+  const due = new Date(r.dealDueAt);
+  if (r.status === "expired") return `Not closed by ${due.toLocaleString()}. The fee was returned to the buyer.`;
+  if (!["held", "confirmed"].includes(r.status)) return null;
+  return due.getTime() < Date.now() ? "Deadline passed. This reservation is being released." : `Deal must be closed by ${due.toLocaleString()}.`;
+}
+
 function Row({ r, role }: { r: ReservationView; role: "buyer" | "seller" | "agent" }) {
   const actions: ("confirm" | "decline" | "cancel" | "complete" | "refund")[] = [];
   if (role !== "buyer") {
@@ -47,6 +55,9 @@ function Row({ r, role }: { r: ReservationView; role: "buyer" | "seller" | "agen
       </div>
       {r.status === "pending_payment" && r.holdExpiresAt && (
         <p className="mt-3 flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300"><Clock className="size-3.5" /> Hold expires {new Date(r.holdExpiresAt).toLocaleTimeString()}</p>
+      )}
+      {dueText(r) && (
+        <p className={`mt-3 flex items-center gap-1.5 text-xs ${r.status === "expired" ? "text-muted" : "text-amber-700 dark:text-amber-300"}`}><Clock className="size-3.5 shrink-0" /> {dueText(r)}</p>
       )}
       <details className="mt-3 text-xs text-muted">
         <summary className="cursor-pointer font-medium">Timeline</summary>
@@ -90,7 +101,7 @@ export default async function ReservationsPage() {
         <p className="mt-1 text-sm text-muted">Track fees, confirmations and refunds for every reservation.</p>
       </header>
       <Section title="My reservations" hint="Items you've reserved." items={mine} role="buyer" />
-      <Section title="Incoming" hint="Buyers who reserved your listings. Confirm or decline within a reasonable time." items={incoming} role="seller" />
+      <Section title="Incoming" hint="Buyers who reserved your listings. Reserved listings are hidden from the marketplace, and you must close each deal within 48 hours of payment or the fee is refunded and the listing returns." items={incoming} role="seller" />
       {agent && <Section title="All reservations (agent)" hint="Platform-wide view. You can confirm, cancel, close and retry refunds." items={all} role="agent" />}
     </div>
   );

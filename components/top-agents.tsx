@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Crown, ShieldCheck } from "lucide-react";
 import { getTopAgents, type Grade, type Kind } from "@/lib/agents";
 import { getT } from "@/lib/prefs";
@@ -37,7 +38,7 @@ export async function TopAgents({ kind }: { kind: Kind }) {
                   <span className="absolute -bottom-1 -left-1 grid size-5 place-items-center rounded-full border-2 border-surface bg-indigo-600 text-[10px] font-bold">{i + 1}</span>
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{a.name}</p>
+                  <Link href={`/agents/${a.id}`} className="block truncate text-sm font-semibold hover:text-indigo-500 hover:underline">{a.name}</Link>
                   <p className="flex items-center gap-1 text-[11px] text-muted">
                     {a.verified ? <><ShieldCheck className="size-3 text-emerald-500" /> {t("agentVerified")}</> : `${t("agentScore")} ${a.score}/100`}
                   </p>

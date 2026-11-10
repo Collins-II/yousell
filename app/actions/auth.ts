@@ -6,6 +6,7 @@ import { z } from "zod";
 import { connectDb } from "@/lib/db";
 import { User } from "@/lib/models";
 import { createSession, destroySession, findUserWithPassword } from "@/lib/auth";
+import { formToObject, isSellerType, nest, profileSchema, profileToSet } from "@/lib/account-types";
 
 export type AuthState = { error?: string } | undefined;
 
@@ -37,8 +38,13 @@ const loginSchema = z.object({
 const registerSchema = z.object({
   name: z.string().trim().min(2, "Enter your name").max(80),
   email: z.string().trim().toLowerCase().pipe(z.email("Enter a valid email address")),
-  password: z.string().min(8, "Password must be at least 8 characters").max(128),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(128)
+    .refine((v) => /[A-Za-z]/.test(v) && /\d/.test(v), "Use at least one letter and one number"),
 });
+
 
 export async function login(_: AuthState, formData: FormData): Promise<AuthState> {
   const parsed = loginSchema.safeParse(Object.fromEntries(formData));
@@ -68,16 +74,31 @@ export async function login(_: AuthState, formData: FormData): Promise<AuthState
 }
 
 export async function register(_: AuthState, formData: FormData): Promise<AuthState> {
-  const parsed = registerSchema.safeParse(Object.fromEntries(formData));
+  const raw = formToObject(formData);
+  const parsed = registerSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const profile = profileSchema.safeParse(raw);
+  if (!profile.success) return { error: profile.error.issues[0].message };
   const { name, email, password } = parsed.data;
+  if (password.toLowerCase().includes(email.split("@")[0]) && email.split("@")[0].length >= 4) return { error: "Your password shouldn't contain your email name" };
 
   await connectDb();
   if (await User.exists({ email })) return { error: "An account with this email already exists" };
 
-  const user = await User.create({ name, email, passwordHash: await bcrypt.hash(password, 12) });
+  const now = new Date();
+  const seller = isSellerType(profile.data.accountType);
+  const user = await User.create({
+    name,
+    email,
+    passwordHash: await bcrypt.hash(password, 12),
+    ...nest(profileToSet(profile.data)),
+    termsAcceptedAt: seller ? now : undefined,
+    verification: seller
+      ? { status: "pending", submittedAt: now, history: [{ at: now, event: "submitted", by: name, note: `${profile.data.accountType} application` }] }
+      : { status: "none" },
+  });
   await createSession({ id: String(user._id), name, email });
-  redirect(safeNext(formData.get("next")));
+  redirect(seller ? "/account?welcome=1" : safeNext(formData.get("next")));
 }
 
 export async function logout() {
