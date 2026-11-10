@@ -46,7 +46,7 @@ export default async function HomePage() {
       <header className="space-y-5">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="dot-title text-2xl sm:text-[29px] font-semibold">{session ? `${t("welcome")}, ${session.name.split(" ")[0]}` : t("welcomeTo")}</h1>
+           {/*  <h1 className="dot-title text-2xl sm:text-[29px] font-semibold">{session ? `${t("welcome")}, ${session.name.split(" ")[0]}` : t("welcomeTo")}</h1>*/}
             <p className="mt-1 text-sm text-muted">{t("homeSub")}</p>
           </div>
           <form action="/properties" className="flex w-full max-w-sm items-center gap-2 rounded-full border border-line bg-surface px-4 sm:w-auto">

@@ -50,6 +50,7 @@ export async function login(_: AuthState, formData: FormData): Promise<AuthState
   const user = await findUserWithPassword(email);
   const ok = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
   if (!user || !user.passwordHash || !ok) return { error: "Incorrect email or password" };
+  if ((user as { suspended?: boolean }).suspended) return { error: "This account has been suspended. Contact support." };
 
   await createSession({ id: String(user._id), name: user.name ?? "", email: user.email });
   redirect(safeNext(formData.get("next")));

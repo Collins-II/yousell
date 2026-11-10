@@ -46,6 +46,9 @@ export const getSession = cache(async (): Promise<SessionUser | null> => {
   try {
     const { payload } = await jwtVerify(token, secret(), { algorithms: ["HS256"] });
     if (!payload.sub) return null;
+    await connectDb();
+    const account = await User.findById(payload.sub).select("suspended").lean<{ suspended?: boolean }>();
+    if (account?.suspended) return null;
     return { id: payload.sub, name: String(payload.name ?? ""), email: String(payload.email ?? "") };
   } catch {
     return null;

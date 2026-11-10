@@ -38,6 +38,8 @@ const propertySchema = new Schema(
     bathrooms: { type: Number, default: 0 },
     isFeatured: { type: Boolean, default: false },
     map: mapSchema,
+    suspended: { type: Boolean, default: false },
+    moderation: { reason: String, by: String, at: Date, via: String },
   },
   { collection: "properties" },
 );
@@ -71,9 +73,19 @@ const carSchema = new Schema(
     isFeatured: Boolean,
     address: addressSchema,
     map: mapSchema,
+    suspended: { type: Boolean, default: false },
+    moderation: { reason: String, by: String, at: Date, via: String },
   },
   { collection: "cars", timestamps: true },
 );
+
+// Listings suspended from the admin portal are hidden everywhere except when queried by owner.
+for (const schema of [propertySchema, carSchema]) {
+  schema.pre(["find", "findOne", "countDocuments"], function () {
+    const filter = this.getFilter();
+    if (!("author" in filter) && !("suspended" in filter)) this.where({ suspended: { $ne: true } });
+  });
+}
 
 const userSchema = new Schema(
   {

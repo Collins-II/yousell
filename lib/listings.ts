@@ -144,7 +144,7 @@ function textMatch(q?: string) {
 export async function searchListings(kind: Kind, f: Filters) {
   await connectDb();
   const page = Math.max(1, f.page ?? 1);
-  const match: Raw = { ...textMatch(f.q), ...priceMatch(f) };
+  const match: Raw = { ...textMatch(f.q), ...priceMatch(f), suspended: { $ne: true } };
   if (f.category) match.listingCategory = kind === "car" ? f.category.toUpperCase() : f.category;
 
   if (kind === "property") {

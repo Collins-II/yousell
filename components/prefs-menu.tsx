@@ -30,18 +30,18 @@ export function PrefsMenu() {
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-label={`${t("language")} / ${t("currency")}`}
-        className="inline-flex h-10 items-center gap-1.5 rounded border border-line px-2.5 text-xs font-semibold text-muted transition hover:text-fg"
+        className="inline-flex size-10 items-center justify-center gap-1.5 rounded border border-line text-xs font-semibold text-muted transition hover:text-fg sm:h-10 sm:w-auto sm:px-2.5"
       >
         <Globe className="size-4" />
-        <span className="uppercase">{locale}</span>
-        <span className="text-line">|</span>
-        <span>{currency || "AUTO"}</span>
+        <span className="hidden uppercase sm:inline">{locale}</span>
+        <span className="hidden text-line sm:inline">|</span>
+        <span className="hidden sm:inline">{currency || "AUTO"}</span>
       </button>
 
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden />
-          <div role="dialog" aria-label={t("language")} className={`absolute right-0 top-12 z-50 w-72 rounded-xl border border-line bg-surface p-4 shadow-xl ${pending ? "opacity-70" : ""}`}>
+          <div role="dialog" aria-label={t("language")} className={`fixed inset-x-4 top-28 z-50 max-h-[calc(100dvh-8rem)] overflow-y-auto rounded-xl border border-line bg-surface p-4 shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-72 ${pending ? "opacity-70" : ""}`}>
             <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">{t("language")}</p>
             <ul className="mt-2 grid grid-cols-2 gap-1.5">
               {LOCALES.map((l) => (

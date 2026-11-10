@@ -39,8 +39,8 @@ export function AppShell({ user, unread, pending, children }: { user: User; unre
   const hideTabs = pathname === "/login" || pathname === "/register";
 
   return (
-    <div className="flex min-h-dvh flex-col pb-16 lg:pb-0">
-      <header className="relative z-40 border-b border-line bg-surface">
+    <div className={`flex min-h-dvh flex-col ${hideTabs ? "" : "pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0"}`}>
+      <header className="relative z-50 border-b border-line bg-surface">
         <div className="border-b border-line bg-cream">
           <div className="campus-container flex items-center justify-between gap-3 py-2 text-[10px] font-semibold text-muted">
             <span>
@@ -50,7 +50,7 @@ export function AppShell({ user, unread, pending, children }: { user: User; unre
           </div>
         </div>
 
-        <div className="campus-container flex h-20 items-center justify-between gap-4">
+        <div className="campus-container flex h-20 items-center justify-between gap-2 sm:gap-4">
           <Logo />
 
           <nav aria-label="Main" className="hidden items-center gap-6 xl:flex">
@@ -92,9 +92,10 @@ export function AppShell({ user, unread, pending, children }: { user: User; unre
             <button
               type="button"
               onClick={() => setOpen((v) => !v)}
-              aria-label={open ? "Close menu" : "Open menu"}
+              aria-label={t("menu")}
               aria-expanded={open}
-              className="grid size-11 place-items-center rounded-lg border border-line xl:hidden"
+              aria-controls="mobile-menu"
+              className="grid size-11 shrink-0 place-items-center rounded-lg border border-line xl:hidden"
             >
               {open ? <X className="size-5" /> : <Menu className="size-5" />}
             </button>
@@ -102,10 +103,10 @@ export function AppShell({ user, unread, pending, children }: { user: User; unre
         </div>
 
         {open && (
-          <nav aria-label="More" className="absolute inset-x-0 top-full border-b border-line bg-surface px-6 pb-5 shadow-lg xl:hidden">
-            {[...links, { href: "/sell", label: t("listItem") }, { href: "/dashboard", label: t("dashboard") }, { href: "/pricing", label: t("pricing") }].map(({ href, label }) => (
-              <Link key={href} href={href} onClick={() => setOpen(false)} className="flex items-center justify-between border-b border-line py-3.5 text-sm font-semibold">
-                {label}
+          <nav id="mobile-menu" aria-label={t("menu")} className="absolute inset-x-0 top-full max-h-[calc(100dvh-8rem)] overflow-y-auto overscroll-contain border-b border-line bg-surface px-6 pb-5 shadow-lg xl:hidden">
+            {[...links, { href: "/sell", label: t("listItem"), badge: 0 }, { href: "/dashboard", label: t("dashboard"), badge: 0 }, { href: "/pricing", label: t("pricing"), badge: 0 }].map(({ href, label, badge }) => (
+              <Link key={href} href={href} onClick={() => setOpen(false)} aria-current={active(href) ? "page" : undefined} className="flex items-center justify-between border-b border-line py-3.5 text-sm font-semibold">
+                <span>{label} {badge ? <span className="ml-1 rounded-full bg-indigo-600 px-1.5 py-0.5 text-[10px] text-white">{badge > 9 ? "9+" : badge}</span> : null}</span>
                 <ArrowUpRight className="size-4 text-muted" />
               </Link>
             ))}
@@ -170,10 +171,10 @@ export function AppShell({ user, unread, pending, children }: { user: User; unre
                 key={href}
                 href={href}
                 aria-current={active(href) ? "page" : undefined}
-                className={`relative flex flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-extrabold uppercase tracking-wider transition ${active(href) ? "text-indigo-600 shadow-[inset_0_3px_0_0_#1769c2]" : "text-muted"}`}
+                className={`relative flex min-w-0 flex-col items-center justify-center gap-1 px-0.5 py-2.5 text-center text-[9px] font-bold leading-tight transition sm:text-[10px] ${active(href) ? "text-indigo-600 shadow-[inset_0_3px_0_0_#1769c2]" : "text-muted"}`}
               >
-                <Icon className="size-5" />
-                {label}
+                <Icon className="size-5 shrink-0" />
+                <span className="max-w-full break-words">{label}</span>
               </Link>
             ))}
           </div>
