@@ -112,7 +112,7 @@ export function RegionCounter({ data }: { data: CountryRegions[] }) {
       <ul ref={rail} id="region-list" aria-label={t("regionsTitle")} tabIndex={0} className="grid snap-x snap-mandatory grid-flow-col grid-rows-2 auto-cols-[minmax(190px,42%)] gap-3 overflow-x-auto overscroll-x-contain p-4 sm:auto-cols-[230px] sm:px-7 sm:pb-6">
         {current.regions.map((r, i) => (
           <li key={r.name} className="min-w-0 snap-start">
-            <Link prefetch={false} href={`/map?${new URLSearchParams({ country: current.country, region: r.name })}`} className="group flex h-full flex-col overflow-hidden rounded-xl border border-line bg-bg p-4 transition hover:border-indigo-500/50 hover:bg-indigo-500/5 hover:shadow-md focus-visible:outline-offset-[-2px]">
+            <Link prefetch={false} href={`/map?${new URLSearchParams({ country: current.country, region: r.name })}`} className="group relative flex h-full flex-col overflow-hidden rounded-xl border border-line bg-bg p-4 transition hover:border-indigo-500/50 hover:bg-indigo-500/5 hover:shadow-md focus-visible:outline-offset-[-2px]">
               <div className="flex items-start justify-between gap-2">
                 <span className="flex min-w-0 items-center gap-2 text-sm font-semibold"><span className="grid size-8 shrink-0 place-items-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-300"><MapPin className="size-4" aria-hidden="true" /></span><span className="break-words">{r.name}</span></span>
                 <ArrowRight className="size-4 shrink-0 text-muted transition group-hover:translate-x-1 group-hover:text-indigo-500" aria-hidden="true" />
