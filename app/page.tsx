@@ -42,7 +42,7 @@ export default async function HomePage() {
   ];
 
   return (
-    <div className="campus-container space-y-9 py-6 sm:space-y-12 sm:py-8">
+    <div className="campus-container overflow-x-clip space-y-9 py-6 sm:space-y-12 sm:py-8">
       <header className="space-y-5">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
